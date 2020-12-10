@@ -1,0 +1,23 @@
+shader InitBoids_ComputeFX : ComputeShaderBase, HappyNoise
+{
+    struct Attributes
+    {
+        float3 position;
+        float3 velocity;
+    };
+
+    RWStructuredBuffer<Attributes> Data;
+
+    override void Compute()
+    {
+        uint dtid = streams.DispatchThreadId.x;
+
+        float3 pos = perlinDFV(dtid.xxx * float3(.01, .2, .01));
+        float3 vel = normalize(simplexDFV(pos * .5));
+
+        Attributes initial = (Attributes)0;
+        initial.position = pos;
+        initial.velocity = vel;
+        Data[dtid] = initial;
+    }
+};

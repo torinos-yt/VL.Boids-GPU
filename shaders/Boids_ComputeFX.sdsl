@@ -1,0 +1,168 @@
+//Boids Simulation
+//original from : Indie Visual Lab
+//https://github.com/IndieVisualLab/UnityGraphicsProgrammingSeries
+shader Boids_ComputeFX : ComputeShaderBase
+{
+    struct Matrix
+    {
+        float4x4 m;
+    };
+
+    struct Attributes
+    {
+        float3 position;
+        float3 velocity;
+    };
+
+    RWStructuredBuffer<Attributes> Data;
+
+    //we cannot use Buffer<float4x4>...... 
+    RWStructuredBuffer<Matrix> Matricies;
+    RWStructuredBuffer<Matrix> InverseMatricies;
+
+    float3 WallCenter;
+    float3 WallSize;
+    float WallForceStlength = .5;
+
+    float time;
+    float delta;
+
+    float SeparationRadius = .5;
+    float AlignRadius = .5;
+    float CohesionRadius = .25;
+
+    float SeparationStlength = 1.5;
+    float AlignStlength = 1.2;
+    float CohesionStlength = 2.5;
+
+    float maxVelocity = 1.0;
+    float maxForce = .2;
+
+    float3 limit(float3 v, float m)
+    {
+        float l = sqrt(dot(v, v));
+	    return lerp(v * (m / l), v, step(l, m));
+    }
+
+    groupshared Attributes GroupData[ThreadNumberX];
+
+    override void Compute()
+    {
+        uint dtid = streams.DispatchThreadId.x;
+        uint gtid = streams.GroupThreadId.x;
+
+        //prev frame data
+        Attributes v = Data[dtid];
+
+        float3 separation = 0;
+        int scnt = 0;
+        float3 align = 0;
+        int acnt = 0;
+        float3 cohesion = 0;
+        int ccnt = 0;
+
+        [loop]
+        for(uint gi = 0; gi < (uint)(ThreadNumberX * streams.ThreadGroupCount.x);
+            gi += ThreadNumberX)
+        {
+            //setup shared array data per thread group
+            Attributes d;
+            d.position = Data[gi + gtid].position;
+            d.velocity = Data[gi + gtid].velocity;
+            GroupData[gtid] = d;
+            GroupMemoryBarrierWithGroupSync();
+            
+            for(uint i = 0; i < ThreadNumberX; i++){
+                
+                float3 fpos = GroupData[i].position;
+                float3 fvel = GroupData[i].velocity;
+                
+                float3 dir = v.position - fpos;
+                float dist = sqrt(dot(dir, dir));
+                
+                //separation
+                if(dist > 0.0 && dist <= SeparationRadius){
+                    separation += normalize(dir) / dist;
+                    scnt++;
+                }
+                
+                //align
+                if(dist > 0.0 && dist <= AlignRadius){
+                    align += fvel;
+                    acnt++;
+                }
+            
+                //cohesion
+                if(dist > 0.0 && dist <= CohesionRadius){
+                    cohesion += fpos;
+                    ccnt++;
+                }
+            }
+            GroupMemoryBarrierWithGroupSync();
+        }
+
+        //normalize boids force
+        if(scnt >= 1)
+        {
+            separation /= (float)scnt;
+            separation = normalize(separation) * maxVelocity;
+            separation -= v.velocity;
+            separation = limit(separation, maxForce);
+        }
+        if(acnt >= 1)
+        {
+            align /= (float)acnt;
+            align = normalize(align) * maxVelocity;
+            align -= v.velocity;
+            align = limit(align, maxForce);
+        }
+        if(ccnt >= 1)
+        {
+            cohesion /= (float)ccnt;
+            cohesion -= v.position;
+            cohesion = normalize(cohesion) * maxVelocity;
+            cohesion -= v.velocity;
+            cohesion = limit(cohesion, maxForce);
+        }
+
+        float3 force = 0;
+        force += separation * SeparationStlength;
+        force += align * AlignStlength;
+        force += cohesion * CohesionStlength;
+
+        //wall collision
+        float3 wallV = v.position - WallCenter;
+        float3 wallForce = 0;
+        wallForce.x = lerp(sign(-wallV.x), 0, step(abs(wallV.x), (WallSize.x / 2)));
+        wallForce.y = lerp(sign(-wallV.y), 0, step(abs(wallV.y), (WallSize.y / 2)));
+        wallForce.z = lerp(sign(-wallV.z), 0, step(abs(wallV.z), (WallSize.z / 2)));
+
+        force += wallForce * WallForceStlength;
+
+        //update attributes
+        float3 velocity = v.velocity + force * delta;
+        float3 position = v.position + velocity * delta;
+
+        //setup output matrix
+        float3 zDir = normalize(velocity);
+        float3 xDir = normalize(cross(float3(0,1,0), zDir));
+        float3 yDir = normalize(cross(xDir, zDir));
+        xDir = normalize(cross(yDir, zDir));
+
+        float4x4 mat = float4x4(float4(xDir, 0),
+                                float4(yDir, 0),
+                                float4(zDir, 0),
+                                float4(position, 1));
+
+        Matrix m;
+        m.m = mat;
+        Matricies[dtid] = m;
+
+        m.m = transpose(mat);
+        InverseMatricies[dtid] = m;
+
+        v.position = position;
+        v.velocity = velocity;
+        Data[dtid] = v;
+    }
+};
