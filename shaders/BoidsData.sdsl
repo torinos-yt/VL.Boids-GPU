@@ -1,0 +1,11 @@
+shader BoidsData : ComputeShaderBase
+{
+    struct Attributes
+    {
+        float3 position;
+        float3 velocity;
+        float2 pad; //128-bit (float4) aligned data, see: https://developer.nvidia.com/content/understanding-structured-buffer-performance
+    };
+
+    RWStructuredBuffer<Attributes> Data;
+};
