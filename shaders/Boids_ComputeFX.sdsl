@@ -1,20 +1,12 @@
 //Boids Simulation
 //original from : Indie Visual Lab
 //https://github.com/IndieVisualLab/UnityGraphicsProgrammingSeries
-shader Boids_ComputeFX : ComputeShaderBase
+shader Boids_ComputeFX : ComputeShaderBase, BoidsData, Global //Time and Timestep
 {
     struct Matrix
     {
         float4x4 m;
     };
-
-    struct Attributes
-    {
-        float3 position;
-        float3 velocity;
-    };
-
-    RWStructuredBuffer<Attributes> Data;
 
     //we cannot use Buffer<float4x4>...... 
     RWStructuredBuffer<Matrix> Matricies;
@@ -23,9 +15,6 @@ shader Boids_ComputeFX : ComputeShaderBase
     float3 WallCenter;
     float3 WallSize;
     float WallForceStlength = .5;
-
-    float time;
-    float delta;
 
     float SeparationRadius = .5;
     float AlignRadius = .5;
@@ -140,8 +129,8 @@ shader Boids_ComputeFX : ComputeShaderBase
         force += wallForce * WallForceStlength;
 
         //update attributes
-        float3 velocity = v.velocity + force * delta;
-        float3 position = v.position + velocity * delta;
+        float3 velocity = v.velocity + force * TimeStep;
+        float3 position = v.position + velocity * TimeStep;
 
         //setup output matrix
         float3 zDir = normalize(velocity);
@@ -149,16 +138,18 @@ shader Boids_ComputeFX : ComputeShaderBase
         float3 yDir = normalize(cross(xDir, zDir));
         xDir = normalize(cross(yDir, zDir));
 
-        float4x4 mat = float4x4(float4(xDir, 0),
-                                float4(yDir, 0),
-                                float4(zDir, 0),
-                                float4(position, 1));
+        float4x4 rotation = float4x4(float4(xDir, 0),
+                                    float4(yDir, 0),
+                                    float4(zDir, 0),
+                                    float4(0, 0, 0, 1));
 
         Matrix m;
-        m.m = mat;
+        m.m = rotation;
+        m.m._41_42_43 = position;
         Matricies[dtid] = m;
 
-        m.m = transpose(mat);
+        // inverse rotation matrix, needed when the material uses normal map
+        m.m = transpose(rotation);
         InverseMatricies[dtid] = m;
 
         v.position = position;

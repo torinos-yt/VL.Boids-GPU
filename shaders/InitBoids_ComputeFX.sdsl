@@ -1,13 +1,5 @@
-shader InitBoids_ComputeFX : ComputeShaderBase, HappyNoise
+shader InitBoids_ComputeFX : ComputeShaderBase, BoidsData, HappyNoise
 {
-    struct Attributes
-    {
-        float3 position;
-        float3 velocity;
-    };
-
-    RWStructuredBuffer<Attributes> Data;
-
     override void Compute()
     {
         uint dtid = streams.DispatchThreadId.x;
