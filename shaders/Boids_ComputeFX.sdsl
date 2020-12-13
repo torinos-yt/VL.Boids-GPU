@@ -145,9 +145,10 @@ shader Boids_ComputeFX : ComputeShaderBase, BoidsData, Global //Time and Timeste
 
         Matrix m;
         m.m = rotation;
+        m.m._41_42_43 = position;
         Matricies[dtid] = m;
 
-        // inverse rotation matrices only needed when the material uses normal map
+        // inverse rotation matrix, needed when the material uses normal map
         m.m = transpose(rotation);
         InverseMatricies[dtid] = m;
 
