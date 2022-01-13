@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/10/nuspec.xsd">
+  <metadata>
+    <id>VL.Boids-GPU</id>
+    <version>0.1.3</version>
+    <title>VL.Boids-GPU</title>
+    <authors>torinos, tebjan, phlegma</authors>
+    <projectUrl>https://github.com/torinos-yt/VL.Boids-GPU</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <summary>Stride boids algorithm</summary>
+    <description>boids algorithm implemeted with vvvv gamma stride</description>
+    <tags>boids, VL,vvvv ,Stride, GPU</tags>
+	<license type="expression">Apache-2.0</license>
+  </metadata>
+  <files>
+	<file src="..\*.vl" target="" exclude="" />
+	<file src="..\*.md" target="" exclude="" />
+    <file src="..\help\**" target="..\help\" />
+    <file src="..\shaders\**" target="..\shaders\" />
+	
+  </files>
+</package>
